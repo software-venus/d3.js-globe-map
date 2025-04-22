@@ -7,11 +7,11 @@
   <script src="https://unpkg.com/topojson@3"></script>
   <style>
     body {
+      margin: 0;
+      padding: 0;
       display: flex;
       justify-content: center;
       align-items: center;
-      margin: 0;
-      padding: 0;
       background-color: #fff;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     }
@@ -49,7 +49,7 @@
       flex-direction: row;
       transition: transform 0.5s ease-in-out;
       align-items: center;
-      overflow: visible; /* optional */
+      overflow: visible;
     }
 
     .popup {
@@ -59,7 +59,7 @@
       flex-direction: row;
       justify-content: space-between;
       width: 100%;
-      flex: 0 0 100%; /* make each popup take full width */
+      flex: 0 0 100%;
       z-index: 10;
       overflow: visible;
     }
@@ -415,7 +415,7 @@
     }
     
     window.addEventListener("resize", resizeMap);
-    resizeMap(); // call initially
+    resizeMap();
   </script>
 </body>
 </html>
