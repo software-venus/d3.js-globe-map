@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Munksjo Careers</title>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/topojson@3"></script>
+  <style>
+    body {
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin: 0;
+      padding: 0;
+      background-color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    #map {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #popup-main {
+      margin: 0 auto;
+      display: none;
+      max-width: 100%;
+      padding: 20px 0;
+      background: #fff;
+      position: absolute;
+      bottom: 0;
+      overflow: visible;
+    }
+
+    .popup-slider {
+      position: relative;
+      margin: 0 auto;
+      width: 1000px;
+      overflow: visible;
+    }
+
+    .popup-container {
+      width: 1000px;
+      display: flex;
+      flex-direction: row;
+      transition: transform 0.5s ease-in-out;
+      align-items: center;
+      overflow: visible; /* optional */
+    }
+
+    .popup {
+      position: relative;
+      height: 300px;
+      display: flex;
+      flex-direction: row;
+      justify-content: space-between;
+      width: 100%;
+      flex: 0 0 100%; /* make each popup take full width */
+      z-index: 10;
+      overflow: visible;
+    }
+
+    .popup > img {
+      position: absolute;
+      width: 500px;
+      height: 300px;
+      bottom: 75px;
+      z-index: 100;
+      margin-top: 10px;
+      overflow-x: hidden;
+      overflow-y: visible;
+
+    }
+
+    .popup-text {
+      position: absolute;
+      right: 0;
+      background-color: #00a882;
+      width: 700px;
+      height: 100%;
+      color: #fff;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-end;
+    }
+
+    .popup-text h1 {
+      width: 60%;
+      font-size: 20px;
+      margin: 10px 40px 10px 0px;
+      font-weight: normal;
+    }
+
+    .popup-text p {
+      width: 60%;
+      font-size: 16px;
+      margin: 10px 40px 10px 0px;
+      line-height: 1.5;
+    }
+
+    .popup-text a {
+      color: #fff;
+      text-decoration: underline;
+    }
+
+    .popup-dots {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .popup-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ccc;
+      cursor: pointer;
+      outline: 1px solid red;
+      z-index: 100;  
+    }
+
+    .popup-dot.active {
+      background: #00a882;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(40px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    path {
+      transition: fill 0.3s ease;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      transform: perspective(1200px) rotateX(58deg);
+      margin-top: -300px;
+      margin-left: -100px;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div id="popup-main">
+    <div class="popup-slider">
+      <div class="popup-container" id="popup-container"></div>
+    </div>
+    <div class="popup-dots" id="popup-dots"></div>
+  </div>
+
+  <script>
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function normalizeCountryName(name) {
+      const mapping = {
+        "United States": "United States of America",
+        "USA": "United States of America"
+      };
+      return mapping[name] || name;
+    }
+
+    const highlightedCountries = {
+      "Germany": {
+        details: [
+          { name: "Munksjö Dettingen", img: "https://www.munksjo.com/wp-content/uploads/2023/01/Werksbild-Dettingen-2023-652x450-1.jpg?text=Production site Germany, Dettingen/Erms", description: "Founded in 1861, our Dettingen plant stands out due to its over 160-year-long and rich history. Besides the standard LPL and PBP decor papers production, the mill serves as the competence center for pre-impregnated papers (PIP)  within Munksjö." },
+          { name: "Munksjö Unterkochen", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Unterkochen.jpg?text=Production site Unterkochen", description: "Our paper mill was founded in 1613 and it is the competence center for PBP decor papers, alogside HPL and LPL solid decor papers. The plant also holds the CCL (Central Color Lab), a hub to ensure precise color consistency, drive innovation in color development, and support quality assurance and technical excellence for the Group." }
+        ]
+      },
+      "France": {
+        details: [
+              { name: "Munksjö Apprieu R&D Center", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Apprieu.jpg?text=R&D center France", description: "Our R&D resources focus on topics related to research of more sustainable and cost-competitive materials and development of new products. We are committed to identify solutions for new product applications and increased decor paper functionality." },
+             { name: "Munksjö Arches", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Brazil-Caieiras.jpg?text=Production site Brazil", description: "Our Arches plant has been producing paper for various applications since 1492, but it began manufacturing decor paper in 1954. The plant features a lab and two machines dedicated to producing colored decor paper." }
+        ]
+      },
+      "China": {
+        details: [
+          { name: "Sales Office | China", img: "https://www.munksjo.com/wp-content/uploads/2022/09/ShanghaiOffice.jpg?text=Sales office China", description: "Our sales office in Shanghai plays an important role in connecting with customers in the APAC region and worldwide, delivering tailored solutions, and driving growth through a deep understanding of market needs and Munksjö's innovative decor paper offerings." },
+          { name: "Munksjö Xintgai", img: "https://www.munksjo.com/wp-content/uploads/2022/09/XingtaiPlant.jpg?text=Production site China", description: "Located in Baixiang, Hebei Province, with key connections to the Beijing-Guangzhou Railway and other major highways, our Xingtai production facility was established in 2016, equipped with state-of-the-art machinery. Its product rage goes from Print Base Paper (PBP) and decor papers for low-pressure laminate (HPL) and high-pressure laminate (HPL)." }
+        ]
+      },
+      "Brazil": {
+        details: [
+          { name: "Munksjö Caieiras", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Brazil-Caieiras-300x206.jpg?text=Sales office Brazil", description: "Established in 1890, our Caieiras plant is is the only decor paper manufacturing plant in Latin America. Its flexible production of standard grades counts with the production of LPL, HPL and PBP decor papers." }
+          
+        ]
+      },
+      "Spain": {
+        details: [
+          { name: "Munksjö Tolosa", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Spain-Berastegi.jpg?text=Sales office Spain", description: "Established in 1920, our plant is located in Berastegui and is specialized in the production of solid-color decor papers for HPL and LPL, and PBP used in furniture, flooring and more. The mill's electricity consumption is 100% covered by renewable energy, preventing more than 30% of the plant's CO2 emissions annually." },
+           ]
+      },
+      "Sweden":{
+        details: [
+          { name: "Munksjö Head Office", img: "https://www.munksjo.com/wp-content/uploads/2023/07/HQ300x206-1.jpg?text=Munksjö Paper AB", description: "Our central hub for strategic decision-making, corporate governance, and the coordination of global operations, ensuring alignment with the company's vision and values."  },
+         
+        ]
+      },
+
+      "Italy": { name: "Sales Office | Italy", img: "https://www.munksjo.com/wp-content/uploads/2022/09/TurinOffice_M.jpg?text=Sales office Italy", description: "Our sales office in Turin play an important role in connecting with customers in Europe and worldwide, delivering tailored solutions, and driving growth through a deep understanding of market needs and Munksjö's innovative decor paper offerings." },
+      "Turkey": { name: "Sales Office | Türkiye", img: "https://www.munksjo.com/wp-content/uploads/2022/09/IstanbulOffice_1.jpg?text=Sales office Turkey", description: "Our sales office in Istanbul plays an important role in connecting with customers in the region and worldwide, delivering tailored solutions, and driving growth through a deep understanding of market needs and Munksjö's innovative decor paper offerings." },
+      "United States of America": { name: "Sales Office | USA", img: "https://www.munksjo.com/wp-content/uploads/2022/02/USA.jpg?text=Sales office United States", description: "Our sales office in Broomfield, Colorado, plays an important role in connecting with customers in North America and worldwide, delivering tailored solutions, and driving growth through a deep understanding of market needs and Munksjö's innovative decor paper offerings." }
+    };
+
+    // Choose the smaller dimension to base the scale
+    const minDimension = Math.min(width, height);
+
+    // Adjust the multiplier (e.g., 0.2) to zoom in/out
+    const scale = minDimension * 0.27;
+
+    const projection = d3.geoNaturalEarth1()
+      .scale(scale)
+      .translate([width / 2, height / 2])
+      .center([-3.977466234621728, 45.56113940218912]);
+
+    const path = d3.geoPath().projection(projection);
+
+    const svg = d3.select("#map").append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const popup = document.getElementById("popup-main");
+    const popupContainer = document.getElementById("popup-container");
+    const dotsContainer = document.getElementById("popup-dots");
+    let clickedCountry = null;
+
+    function updatePopup(slides) {
+      popupContainer.innerHTML = `
+        <div class="popup">
+          <img id="popup-img" src="${slides[0].img}" alt="">
+          <div class="popup-text">
+            <h1>${slides[0].name}</h1>
+            <p>${slides[0].description}</p>
+            ${slides[0].link ? `<a href="${slides[0].link}">Phone: ${slides[0].link.replace('tel:', '')}</a>` : ''}
+          </div>
+        </div>
+      `;
+    
+      dotsContainer.innerHTML = "";
+    
+      if (slides.length > 1) {
+        slides.forEach((_, i) => {
+          dotsContainer.innerHTML += `<div class="popup-dot" data-index="${i}"></div>`;
+        });
+    
+        const dots = document.querySelectorAll(".popup-dot");
+        let activeIndex = 0;
+        dots[activeIndex].classList.add("active");
+    
+        function updateSlide() {
+          const slide = slides[activeIndex];
+          const img = document.getElementById("popup-img");
+          const title = popupContainer.querySelector("h1");
+          const desc = popupContainer.querySelector("p");
+          const link = popupContainer.querySelector("a");
+    
+          img.src = slide.img;
+          title.textContent = slide.name;
+          desc.textContent = slide.description;
+    
+          if (slide.link) {
+            if (link) {
+              link.href = slide.link;
+              link.textContent = `Phone: ${slide.link.replace('tel:', '')}`;
+            } else {
+              desc.insertAdjacentHTML('afterend', `<a href="${slide.link}">Phone: ${slide.link.replace('tel:', '')}</a>`);
+            }
+          } else if (link) {
+            link.remove();
+          }
+    
+          dots.forEach(dot => dot.classList.remove("active"));
+          dots[activeIndex].classList.add("active");
+        }
+    
+        dots.forEach(dot => {
+          dot.addEventListener("click", () => {
+            activeIndex = parseInt(dot.dataset.index);
+            updateSlide();
+          });
+        });
+      }
+    
+      popup.style.display = "block";
+    }
+    
+
+    d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(function(data) {
+      svg.append("g")
+        .selectAll("path")
+        .data(data.features)
+        .join("path")
+        .attr("d", path)
+        .attr("fill", d => highlightedCountries[normalizeCountryName(d.properties.name)] ? "#002d4f" : "#eaeaea")
+        .attr("stroke", "#fff")
+        .on("mouseover", function (event, d) {
+          const name = normalizeCountryName(d.properties.name);
+          if (highlightedCountries[name]) d3.select(this).attr("fill", "#00a882");
+        })
+        .on("mouseout", function (event, d) {
+          const name = normalizeCountryName(d.properties.name);
+          if (highlightedCountries[name] && name !== clickedCountry) {
+            d3.select(this).attr("fill", "#002d4f");
+          }
+        })
+        .on("click", function (event, d) {
+          const name = normalizeCountryName(d.properties.name);
+          if (!highlightedCountries[name]) return;
+
+          svg.selectAll("path").each(function(d2) {
+            const n = normalizeCountryName(d2.properties.name);
+            if (highlightedCountries[n]) {
+              d3.select(this).attr("fill", "#002d4f");
+            }
+          });
+          d3.select(this).attr("fill", "#00a882");
+          clickedCountry = name;
+
+          const data = highlightedCountries[name];
+          const slides = data.details || [data];
+          updatePopup(slides);
+        });
+    });
+
+    function resizeMap() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+    
+      svg.attr("width", width).attr("height", height);
+      projection.translate([width / 2, height / 2]); // recenters
+      svg.selectAll("path").attr("d", path); // re-draw paths
+    }
+    
+    window.addEventListener("resize", resizeMap);
+    resizeMap(); // call initially
+  </script>
+</body>
+</html>
