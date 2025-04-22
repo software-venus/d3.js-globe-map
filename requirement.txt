@@ -5,8 +5,4 @@
 5) Oceans should be #ffffff.
 6) The map should have a backward, stretched effect like a globe.
 
-Normally you don't need to do the 6 points. 
-They are done by me. You just need to correct the size of the popup texts (css) and make sure that Alaska French Guiana remains in #eaeaea color. 
-I sent the points for information
 
-No, I need the presentation as shown in the mockup. Users must not be able to zoom in (zoom is blocked).s

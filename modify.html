@@ -7,7 +7,6 @@
   <script src="https://unpkg.com/topojson@3"></script>
   <style>
     body {
-      height: 100vh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -55,7 +54,7 @@
 
     .popup {
       position: relative;
-      height: 300px;
+      height: 270px;
       display: flex;
       flex-direction: row;
       justify-content: space-between;
@@ -68,13 +67,18 @@
     .popup > img {
       position: absolute;
       width: 500px;
-      height: 300px;
+      height: 270px;
       bottom: 75px;
       z-index: 100;
       margin-top: 10px;
       overflow-x: hidden;
       overflow-y: visible;
-
+      transition: opacity 0.4s ease;
+      opacity: 1;
+    }
+    
+    .popup img.fade-out {
+      opacity: 0;
     }
 
     .popup-text {
@@ -118,13 +122,12 @@
     }
 
     .popup-dot {
-      width: 10px;
-      height: 10px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: #ccc;
       cursor: pointer;
-      outline: 1px solid red;
-      z-index: 100;  
+      z-index: 100;
     }
 
     .popup-dot.active {
@@ -180,8 +183,8 @@
       },
       "France": {
         details: [
-              { name: "Munksjö Apprieu R&D Center", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Apprieu.jpg?text=R&D center France", description: "Our R&D resources focus on topics related to research of more sustainable and cost-competitive materials and development of new products. We are committed to identify solutions for new product applications and increased decor paper functionality." },
-             { name: "Munksjö Arches", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Brazil-Caieiras.jpg?text=Production site Brazil", description: "Our Arches plant has been producing paper for various applications since 1492, but it began manufacturing decor paper in 1954. The plant features a lab and two machines dedicated to producing colored decor paper." }
+          { name: "Munksjö Apprieu R&D Center", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Apprieu.jpg?text=R&D center France", description: "Our R&D resources focus on topics related to research of more sustainable and cost-competitive materials and development of new products. We are committed to identify solutions for new product applications and increased decor paper functionality." },
+          { name: "Munksjö Arches", img: "https://www.munksjo.com/wp-content/uploads/2022/02/Brazil-Caieiras.jpg?text=Production site Brazil", description: "Our Arches plant has been producing paper for various applications since 1492, but it began manufacturing decor paper in 1954. The plant features a lab and two machines dedicated to producing colored decor paper." }
         ]
       },
       "China": {
@@ -222,7 +225,7 @@
     const projection = d3.geoNaturalEarth1()
       .scale(scale)
       .translate([width / 2, height / 2])
-      .center([-3.977466234621728, 45.56113940218912]);
+      .center([0, 45.56113940218912]);
 
     const path = d3.geoPath().projection(projection);
 
@@ -290,6 +293,8 @@
             updateSlide();
           });
         });
+      } else {
+        dotsContainer.innerHTML += `<div class="popup-dot active"></div>`;
       }
     
       popup.style.display = "block";
@@ -297,13 +302,79 @@
     
 
     d3.json("https://raw.githubusercontent.com/holtzy/D3-graph-gallery/master/DATA/world.geojson").then(function(data) {
+      const features = [];
+      data.features.forEach(f => {
+        const name = normalizeCountryName(f.properties.name);
+        if (f.properties.name === 'France' || f.properties.name === 'USA') {
+          f.geometry.coordinates.forEach(polygon => {
+            if(f.properties.name === 'France'){
+              if(polygon[0].length === 48){
+                features.push({
+                  type: "Feature",
+                  properties: f.properties,
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: f.geometry.coordinates[2]
+                  }
+                });
+              } else {
+                const newName = {name: f.properties.name + '1'};
+                features.push({
+                  type: "Feature",
+                  properties: newName,
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: polygon
+                  }
+                });
+              }
+            }
+            else if (f.properties.name === 'USA'){
+              if(polygon[0].length === 233){
+                features.push({
+                  type: "Feature",
+                  properties: f.properties,
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: f.geometry.coordinates[5]
+                  }
+                });
+              } else {
+                const newName = {name: f.properties.name + '1'};
+                features.push({
+                  type: "Feature",
+                  properties: newName,
+                  geometry: {
+                    type: "Polygon",
+                    coordinates: polygon
+                  }
+                });
+              }
+            } else {
+              features.push({
+                type: "Feature",
+                properties: f.properties,
+                geometry: {
+                  type: "Polygon",
+                  coordinates: polygon
+                }
+              });
+            }
+          });
+        } else {
+          features.push(f);
+        }
+      });
+      
+
       svg.append("g")
         .selectAll("path")
-        .data(data.features)
+        .data(features)
         .join("path")
         .attr("d", path)
         .attr("fill", d => highlightedCountries[normalizeCountryName(d.properties.name)] ? "#002d4f" : "#eaeaea")
         .attr("stroke", "#fff")
+        .attr("stroke-width", 1)
         .on("mouseover", function (event, d) {
           const name = normalizeCountryName(d.properties.name);
           if (highlightedCountries[name]) d3.select(this).attr("fill", "#00a882");
@@ -317,7 +388,7 @@
         .on("click", function (event, d) {
           const name = normalizeCountryName(d.properties.name);
           if (!highlightedCountries[name]) return;
-
+    
           svg.selectAll("path").each(function(d2) {
             const n = normalizeCountryName(d2.properties.name);
             if (highlightedCountries[n]) {
@@ -326,12 +397,13 @@
           });
           d3.select(this).attr("fill", "#00a882");
           clickedCountry = name;
-
+    
           const data = highlightedCountries[name];
           const slides = data.details || [data];
           updatePopup(slides);
         });
     });
+    
 
     function resizeMap() {
       const width = window.innerWidth;
